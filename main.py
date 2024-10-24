@@ -1,12 +1,11 @@
 import json
-from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi import FastAPI, Request, HTTPException, Depends, status, Body
 from fastapi.middleware.cors import CORSMiddleware
 from DB.models import Wishlist, Product, WishlistProduct
 from DB.schemas import ProductBase, WishlistBase, UpdateProductBase
 from DB.database import engine, get_db, Base
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from fastapi import Body
 import requests
 from dotenv import load_dotenv
 import os
@@ -14,9 +13,12 @@ from BackgroundMonitoring import scrape_product_data
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import asyncio
+from sqlalchemy import func
+from io import BytesIO
+import pandas as pd
+from fastapi.responses import StreamingResponse
 
 load_dotenv()
-
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -58,6 +60,7 @@ def healthcheck(request: Request):
         "domain": request.url.hostname,
     }
 
+
 @app.get("/get_users")
 def get_users(db: Session = Depends(get_db)):
     try:
@@ -66,6 +69,7 @@ def get_users(db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         return {"error": str(e)}
+
 
 @app.post("/create_wishlist")
 def create_wishlist(wishlist: WishlistBase, db: Session = Depends(get_db)):
@@ -78,8 +82,6 @@ def create_wishlist(wishlist: WishlistBase, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         return {"error": str(e)}
-
-# delete wishlist
 
 
 @app.delete("/delete_wishlist/{wishlist_id}")
@@ -203,3 +205,163 @@ async def scrape(db: Session = Depends(get_db)):
         print("Product data updated successfully for product_id: ", product_id)
 
     return {"message": "Product data updated successfully"}
+
+# User Management Endpoints
+
+
+@app.get("/users")
+def get_all_users(db: Session = Depends(get_db)):
+    try:
+        users = db.query(Wishlist.user_id).distinct().all()
+        user_ids = [user[0] for user in users]
+        result = []
+        for user_id in user_ids:
+            wishlists = db.query(Wishlist).filter_by(user_id=user_id).all()
+            result.append({"user_id": user_id, "wishlists": wishlists})
+        return result
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+
+@app.get("/users/{user_id}")
+def get_user_wishlists(user_id: str, db: Session = Depends(get_db)):
+    try:
+        wishlists = db.query(Wishlist).filter_by(user_id=user_id).all()
+        if not wishlists:
+            return {"message": "User not found or no wishlists"}
+        return {"user_id": user_id, "wishlists": wishlists}
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+# Wishlist Monitoring Endpoints
+
+
+@app.get("/wishlists")
+def get_all_wishlists(db: Session = Depends(get_db), user_id: str = None):
+    try:
+        if user_id:
+            wishlists = db.query(Wishlist).filter_by(user_id=user_id).all()
+        else:
+            wishlists = db.query(Wishlist).all()
+        return wishlists
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+
+@app.get("/wishlists/filter")
+def filter_wishlists(user_id: str = None, start_date: str = None, end_date: str = None, db: Session = Depends(get_db)):
+    try:
+        query = db.query(Wishlist)
+        if user_id:
+            query = query.filter(Wishlist.user_id == user_id)
+        if start_date:
+            query = query.filter(Wishlist.created_at >= start_date)
+        if end_date:
+            query = query.filter(Wishlist.created_at <= end_date)
+        wishlists = query.all()
+        return wishlists
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+# System Analytics Dashboard Endpoints
+
+
+@app.get("/analytics/summary")
+def get_analytics_summary(db: Session = Depends(get_db)):
+    try:
+        total_users = db.query(Wishlist.user_id).distinct().count()
+        total_wishlists = db.query(Wishlist).count()
+        total_products = db.query(Product).count()
+
+        # Top products added
+        top_products = db.query(Product.title, func.count(WishlistProduct.product_id).label('count'))\
+            .join(WishlistProduct).group_by(Product.id).order_by(func.count(WishlistProduct.product_id).desc()).limit(5).all()
+
+        top_products_list = [{"title": product[0],
+                              "count": product[1]} for product in top_products]
+
+        return {
+            "total_users": total_users,
+            "total_wishlists": total_wishlists,
+            "total_products": total_products,
+            "top_products": top_products_list
+        }
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+
+@app.get("/analytics/user-engagement")
+def get_user_engagement(db: Session = Depends(get_db)):
+    """
+    Get average number of wishlists per user and average number of products per wishlist
+    """
+
+    try:
+        total_users = db.query(Wishlist.user_id).distinct().count()
+        total_wishlists = db.query(Wishlist).count()
+        avg_wishlists_per_user = total_wishlists / total_users if total_users else 0
+
+        total_wishlist_products = db.query(WishlistProduct).count()
+        avg_products_per_wishlist = total_wishlist_products / \
+            total_wishlists if total_wishlists else 0
+
+        return {
+            "avg_wishlists_per_user": avg_wishlists_per_user,
+            "avg_products_per_wishlist": avg_products_per_wishlist
+        }
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+
+@app.get("/analytics/product-trends")
+def get_product_trends(db: Session = Depends(get_db)):
+    """
+    Get number of products added over time
+    """
+    try:
+        products_over_time = db.query(func.date(WishlistProduct.added_at), func.count(WishlistProduct.id))\
+            .group_by(func.date(WishlistProduct.added_at)).order_by(func.date(WishlistProduct.added_at)).all()
+
+        trends = [{"date": str(item[0]), "count": item[1]}
+                  for item in products_over_time]
+
+        return trends
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+# Report Generation Endpoint
+
+
+@app.get("/reports/{report_type}")
+def generate_report(report_type: str, db: Session = Depends(get_db)):
+    try:
+        if report_type == "user_activity":
+            users = db.query(Wishlist.user_id, Wishlist.created_at).all()
+            data = [{"user_id": user[0], "created_at": str(
+                user[1])} for user in users]
+            df = pd.DataFrame(data)
+        else:
+            return {"error": "Invalid report type"}
+
+        # Generate Excel file in memory
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False)
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                "Content-Disposition": f"attachment; filename={report_type}.xlsx"
+            }
+        )
+    except Exception as e:
+        return {"error": str(e)}
