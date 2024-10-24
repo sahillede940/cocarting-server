@@ -20,13 +20,13 @@ class Wishlist(Base):
         passive_deletes=True,
     )
 
-    # Relationship to products through wishlist_products
+    # Relationship to products through wishlist_products (read-only to prevent conflicts)
     products = relationship(
         "Product",
         secondary="wishlist_products",
         back_populates="wishlists",
-        cascade="all, delete",
-        passive_deletes=True,
+        viewonly=True,
+        overlaps="wishlist_items",
     )
 
 
@@ -36,7 +36,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(
         String(255), nullable=False, index=True
-    )  
+    )
     current_price = Column(String(255), nullable=False)
     mrp_price = Column(String(255), nullable=False)
     rating = Column(String(50), nullable=False)
@@ -58,12 +58,13 @@ class Product(Base):
         passive_deletes=True,
     )
 
-    # Relationship to wishlists through wishlist_products
+    # Relationship to wishlists through wishlist_products (read-only to prevent conflicts)
     wishlists = relationship(
         "Wishlist",
         secondary="wishlist_products",
         back_populates="products",
-        passive_deletes=True,
+        viewonly=True,
+        overlaps="wishlist_items",
     )
 
 

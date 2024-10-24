@@ -11,6 +11,9 @@ import requests
 from dotenv import load_dotenv
 import os
 from BackgroundMonitoring import scrape_product_data
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
+import asyncio
 
 load_dotenv()
 
@@ -27,6 +30,27 @@ app.add_middleware(
 )
 
 
+async def monitor_product(db: Session):
+    print(f"Scraping data at {datetime.now()}")
+    await scrape(db)
+
+
+def run_async_task():
+    db = next(get_db())
+    asyncio.run(monitor_product(db))
+
+
+def start_scheduler():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_async_task, 'interval', days=7)
+    scheduler.start()
+
+
+@app.on_event("startup")
+async def startup_event():
+    start_scheduler()
+
+
 @app.get("/healthcheck")
 def healthcheck(request: Request):
     return {
@@ -34,6 +58,14 @@ def healthcheck(request: Request):
         "domain": request.url.hostname,
     }
 
+@app.get("/get_users")
+def get_users(db: Session = Depends(get_db)):
+    try:
+        users = db.query(Wishlist).distinct(Wishlist.user_id).all()
+        return users
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
 
 @app.post("/create_wishlist")
 def create_wishlist(wishlist: WishlistBase, db: Session = Depends(get_db)):
@@ -48,6 +80,8 @@ def create_wishlist(wishlist: WishlistBase, db: Session = Depends(get_db)):
         return {"error": str(e)}
 
 # delete wishlist
+
+
 @app.delete("/delete_wishlist/{wishlist_id}")
 def delete_wishlist(wishlist_id: int, db: Session = Depends(get_db)):
     try:
@@ -58,6 +92,7 @@ def delete_wishlist(wishlist_id: int, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         return {"error": str(e)}
+
 
 @app.get("/get_wishlists/{user_id}")
 def get_wishlist(user_id: str, db: Session = Depends(get_db)):
@@ -109,8 +144,9 @@ def get_wishlist_products(wishlist_id: int, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         return {"error": str(e)}
-    
-@app.delete("/delete_product")
+
+
+@app.delete("/delete_product/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     try:
         product = db.query(Product).filter_by(id=product_id).first()
@@ -122,14 +158,13 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
         return {"error": str(e)}
 
 
-
 @app.delete("/all_data")
-def delete_all_data(password:str, db: Session = Depends(get_db)):
+def delete_all_data(password: str, db: Session = Depends(get_db)):
     print("ALL DATA DELETED")
     if password != "adminadmin":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password", 
+            detail="Incorrect password",
         )
     try:
         db.query(WishlistProduct).delete()
@@ -140,7 +175,7 @@ def delete_all_data(password:str, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         return {"error": str(e)}
-    
+
 
 def update_product(product_id: int, product: UpdateProductBase, db: Session):
     try:
@@ -152,11 +187,19 @@ def update_product(product_id: int, product: UpdateProductBase, db: Session):
         return {"error": str(e)}
 
 
-@app.get("/scrape")
-async def scrape(product_url: str, product_id:int, db: Session = Depends(get_db)):
-    key = os.getenv("SCRAPER_API")    
-    url = f"https://api.scraperapi.com?api_key={key}&url=" + product_url
-    response = requests.get(url)
-    data = await scrape_product_data(response.text, product_url)
-    product = UpdateProductBase(**data)
-    return update_product(product_id, product, db)
+@app.get("/monitor-product")
+async def scrape(db: Session = Depends(get_db)):
+    key = os.getenv("SCRAPER_API")
+    url = f"https://api.scraperapi.com?api_key={key}&url="
+
+    products = db.query(Product).all()
+    for product in products:
+        product_url = product.url
+        product_id = product.id
+        response = requests.get(url + product_url)
+        data = await scrape_product_data(response.text, product_url)
+        product = UpdateProductBase(**data)
+        update_product(product_id, product, db)
+        print("Product data updated successfully for product_id: ", product_id)
+
+    return {"message": "Product data updated successfully"}
