@@ -1,91 +1,67 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, Double, TIMESTAMP, BigInteger, Boolean
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from .database import Base
+from sqlalchemy.ext.declarative import declarative_base
 
-
-class Wishlist(Base):
-    __tablename__ = "wishlist"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String(255), nullable=False, index=True)
-    name = Column(String(255), nullable=False)  # Optional name for the wishlist
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-
-    # Relationship with wishlist_products table
-    wishlist_items = relationship(
-        "WishlistProduct",
-        back_populates="wishlist",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
-    # Relationship to products through wishlist_products (read-only to prevent conflicts)
-    products = relationship(
-        "Product",
-        secondary="wishlist_products",
-        back_populates="wishlists",
-        viewonly=True,
-        overlaps="wishlist_items",
-    )
-
+Base = declarative_base()
 
 class Product(Base):
     __tablename__ = "products"
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(
-        String(255), nullable=False, index=True
-    )
-    current_price = Column(String(255), nullable=False)
-    mrp_price = Column(String(255), nullable=False)
-    rating = Column(String(50), nullable=False)
-    image_url = Column(
-        String(500), nullable=True, server_default=None
-    )  # Increased to 500 chars
-    url = Column(Text, nullable=False)  # Use Text for long URLs
-    website_name = Column(
-        String(100), nullable=False
-    )  # Limiting website name to 100 chars
-    note = Column(Text, nullable=True)  # Use Text for long notes
+    id = Column(BigInteger, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    original_price = Column(Double, nullable=True)
+    customer_rating = Column(String(255), nullable=True)
+    price = Column(Double, nullable=True)
+    product_source = Column(Integer, default=0)
 
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    product_category_id = Column(BigInteger, ForeignKey("product_categories.id"), nullable=True)
+    short_description = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
+    brand_name = Column(String(255), nullable=True)
+    product_tracking_url = Column(String(2500), nullable=True)
+    standard_shipping_rate = Column(String(255), nullable=True)
+    size = Column(String(255), nullable=True)
+    color = Column(String(255), nullable=True)
+    marketplace = Column(Integer, default=0)
+    model_number = Column(String(255), nullable=True)
+    seller_info = Column(String(255), nullable=True)
+    number_of_reviews = Column(Integer, nullable=True)
+    rhid = Column(String(255), nullable=True)
+    bundle = Column(Boolean, default=True)
+    clearance = Column(Boolean, default=True)
+    preorder = Column(Boolean, default=True)
+    stock = Column(String(255), nullable=True)
+    freight = Column(Boolean, default=True)
+    gender = Column(String(255), default='m')
+    affiliate_add_to_cart_url = Column(String(2500), nullable=True)
+    max_number_of_qty = Column(Integer, nullable=True)
+    offer_type = Column(Integer, nullable=True)
+    available_online = Column(Boolean, default=False)
+    e_delivery = Column(Boolean, default=True)
+    deleted_at = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, nullable=True)
+    updated_at = Column(TIMESTAMP, nullable=True)
+    slug = Column(String(255), unique=True, nullable=False)
+    wm_product_id = Column(String(255), nullable=True)
+    amazon_id = Column(String(255), nullable=True)
+    added_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
 
-    wishlist_items = relationship(
-        "WishlistProduct",
-        back_populates="product",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    product_images = relationship("ProductImage", back_populates="product")
 
-    # Relationship to wishlists through wishlist_products (read-only to prevent conflicts)
-    wishlists = relationship(
-        "Wishlist",
-        secondary="wishlist_products",
-        back_populates="products",
-        viewonly=True,
-        overlaps="wishlist_items",
-    )
+class ProductImage(Base):
+    __tablename__ = "product_images"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    product_id = Column(BigInteger, ForeignKey("products.id"), nullable=True)
+    image = Column(Text, nullable=True)
+    thumbnail = Column(String(255), nullable=True)
+    medium_image = Column(String(255), nullable=True)
+    large_image = Column(String(255), nullable=True)
+    deleted_at = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, nullable=True)
+    updated_at = Column(TIMESTAMP, nullable=True)
+
+    product = relationship("Product", back_populates="product_images")
 
 
-class WishlistProduct(Base):
-    __tablename__ = "wishlist_products"
 
-    id = Column(Integer, primary_key=True, index=True)
-    wishlist_id = Column(
-        Integer,
-        ForeignKey("wishlist.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    product_id = Column(
-        Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    added_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-
-    # Relationships to Wishlist and Product tables
-    wishlist = relationship("Wishlist", back_populates="wishlist_items")
-    product = relationship("Product", back_populates="wishlist_items")
