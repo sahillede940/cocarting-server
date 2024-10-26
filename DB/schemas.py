@@ -1,31 +1,23 @@
 from pydantic import BaseModel
 
 
+class ProductBase(BaseModel):
+    name: str
+    original_price: float
+    customer_rating: str
+    price: float
+    product_source: int
+    image: str
+
+
 class WishlistBase(BaseModel):
-    user_id: str
+    id: int
+    
+class CreateWishlistBase(BaseModel):
+    id: int
     name: str
 
 
-class ProductBase(BaseModel):
-    title: str
-    current_price: str
-    mrp_price: str
-    rating: str
-    image_url: str
-    url: str
-    website_name: str
-    note: str
-
-class UpdateProductBase(BaseModel):
-    title: str
-    current_price: str
-    mrp_price: str
-    rating: str
-    image_url: str
-    url: str
-    website_name: str
-
-
-class WishlistProductBase(BaseModel):
-    wishlist_id: int
-    product_id: int
+class AddToWishlist(BaseModel):
+    product: ProductBase
+    wishlist: WishlistBase

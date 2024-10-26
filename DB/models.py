@@ -1,8 +1,19 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Text, Double, TIMESTAMP, BigInteger, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
 
 Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False)
+
+    wishlists = relationship("Wishlist", back_populates="user")
+
 
 class Product(Base):
     __tablename__ = "products"
@@ -14,7 +25,8 @@ class Product(Base):
     price = Column(Double, nullable=True)
     product_source = Column(Integer, default=0)
 
-    product_category_id = Column(BigInteger, ForeignKey("product_categories.id"), nullable=True)
+    product_category_id = Column(BigInteger, ForeignKey(
+        "product_categories.id"), nullable=True)
     short_description = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
     brand_name = Column(String(255), nullable=True)
@@ -48,6 +60,7 @@ class Product(Base):
 
     product_images = relationship("ProductImage", back_populates="product")
 
+
 class ProductImage(Base):
     __tablename__ = "product_images"
 
@@ -64,4 +77,30 @@ class ProductImage(Base):
     product = relationship("Product", back_populates="product_images")
 
 
+class Wishlist(Base):
+    __tablename__ = "wishlists"
 
+    id = Column(BigInteger, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP, default=datetime.utcnow,
+                        onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="wishlists")
+    products = relationship("WishlistProduct", back_populates="wishlist")
+
+
+class WishlistProduct(Base):
+    __tablename__ = "wishlist_products"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    wishlist_id = Column(BigInteger, ForeignKey(
+        "wishlists.id"), nullable=False, index=True)
+    product_id = Column(BigInteger, ForeignKey(
+        "products.id"), nullable=False, index=True)
+    # To store individual notes per wishlist-product relationship
+    note = Column(Text, nullable=True)
+
+    wishlist = relationship("Wishlist", back_populates="products")
+    product = relationship("Product")
