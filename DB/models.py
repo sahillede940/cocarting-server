@@ -1,9 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Text, Double, TIMESTAMP, BigInteger, Boolean
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-
-Base = declarative_base()
+from DB.database import Base
 
 
 class User(Base):
@@ -23,14 +21,14 @@ class Product(Base):
     original_price = Column(Double, nullable=True)
     customer_rating = Column(String(255), nullable=True)
     price = Column(Double, nullable=True)
-    product_source = Column(Integer, default=0)
+    product_tracking_url = Column(String(2500), nullable=True)
+    slug = Column(String(255), unique=True, nullable=False)
+    added_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
 
-    product_category_id = Column(BigInteger, ForeignKey(
-        "product_categories.id"), nullable=True)
+    product_source = Column(Integer, default=0)
     short_description = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
     brand_name = Column(String(255), nullable=True)
-    product_tracking_url = Column(String(2500), nullable=True)
     standard_shipping_rate = Column(String(255), nullable=True)
     size = Column(String(255), nullable=True)
     color = Column(String(255), nullable=True)
@@ -53,10 +51,8 @@ class Product(Base):
     deleted_at = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, nullable=True)
     updated_at = Column(TIMESTAMP, nullable=True)
-    slug = Column(String(255), unique=True, nullable=False)
     wm_product_id = Column(String(255), nullable=True)
     amazon_id = Column(String(255), nullable=True)
-    added_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
 
     product_images = relationship("ProductImage", back_populates="product")
 
@@ -99,7 +95,6 @@ class WishlistProduct(Base):
         "wishlists.id"), nullable=False, index=True)
     product_id = Column(BigInteger, ForeignKey(
         "products.id"), nullable=False, index=True)
-    # To store individual notes per wishlist-product relationship
     note = Column(Text, nullable=True)
 
     wishlist = relationship("Wishlist", back_populates="products")
