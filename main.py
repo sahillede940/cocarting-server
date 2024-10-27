@@ -9,10 +9,15 @@ from DB.models import User, Wishlist, Product, WishlistProduct, ProductImage
 from DB.schemas import (
     UserCreate, User as UserSchema,
     WishlistCreate, Wishlist as WishlistSchema,
-    WishlistProductCreate
+    WishlistProductCreate, UpdateProductBase
 )
 from DB.database import engine, get_db, Base
 from sqlalchemy.orm import joinedload
+import requests
+import os
+from BackgroundMonitoring import scrape_product_data
+import asyncio
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 Base.metadata.create_all(bind=engine)
@@ -34,6 +39,75 @@ def healthcheck(request: Request):
         "message": "Server is up and running",
         "domain": request.url.hostname,
     }
+
+
+async def monitor_product(db: Session):
+    print(f"Scraping data at {datetime.now()}")
+    await scrape(db)
+
+
+def run_async_task():
+    db = next(get_db())
+    asyncio.run(monitor_product(db))
+
+
+def start_scheduler():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_async_task, 'interval', days=7)
+    scheduler.start()
+
+
+@app.on_event("startup")
+async def startup_event():
+    start_scheduler()
+
+
+def update_product(product_id: int, product: UpdateProductBase, db: Session):
+    try:
+        # Update the Product fields
+        db.query(Product).filter_by(id=product_id).update(
+            {
+                "name": product.get("name"),
+                "original_price": product.get("original_price"),
+                "price": product.get("price"),
+                "customer_rating": product.get("customer_rating"),
+                "product_tracking_url": product.get("product_tracking_url"),
+                "slug": product.get("slug"),
+            }
+        )
+
+        # Update the ProductImage fields, if image is provided
+        if product.image:
+            db.query(ProductImage).filter_by(product_id=product_id).update(
+                {
+                    "image": product.image
+                }
+            )
+
+        db.commit()
+        return {"message": "Product updated successfully"}
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"error": str(e)}
+
+
+@app.get("/monitor-product")
+async def scrape(db: Session = Depends(get_db)):
+    key = os.getenv("SCRAPER_API")
+    url = f"https://api.scraperapi.com?api_key={key}&url="
+
+    products = db.query(Product).all()
+    for product in products:
+        product_url = product.product_tracking_url
+        product_id = product.id
+        response = requests.get(url + product_url)
+        product = await scrape_product_data(response.text, product_url)
+        print(product)
+        update_product(product_id, product, db)
+        print("Product data updated successfully for product_id: ", product_id)
+
+    return {"message": "Product data updated successfully"}
+
 
 # User Endpoints
 
@@ -130,7 +204,7 @@ def delete_wishlist(wishlist_id: int, db: Session = Depends(get_db)):
         db.query(WishlistProduct).filter(
             WishlistProduct.wishlist_id == wishlist_id).delete()
         db.commit()
-        
+
         wishlist = db.query(Wishlist).filter(
             Wishlist.id == wishlist_id).first()
         if not wishlist:
@@ -140,7 +214,6 @@ def delete_wishlist(wishlist_id: int, db: Session = Depends(get_db)):
             )
         db.delete(wishlist)
         db.commit()
-
 
         return {"message": "Wishlist deleted successfully"}
 
@@ -244,11 +317,11 @@ def add_product_to_wishlist(
         )
 
 
-
 @app.get("/wishlists/{wishlist_id}/products")
 def get_wishlist_products(wishlist_id: int, db: Session = Depends(get_db)):
     try:
-        wishlist = db.query(Wishlist).filter(Wishlist.id == wishlist_id).first()
+        wishlist = db.query(Wishlist).filter(
+            Wishlist.id == wishlist_id).first()
         if not wishlist:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

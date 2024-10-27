@@ -91,3 +91,15 @@ class WishlistProduct(BaseModel):
 
     class Config:
         orm_mode = True
+
+class UpdateProductBase(BaseModel):
+    name: str
+    original_price: Optional[float] = None
+    price: Optional[float] = None
+    customer_rating: Optional[str] = None
+    product_tracking_url: Optional[str] = None
+    image: ProductImageBase
+    slug: str
+
+    class Config:
+        orm_mode = True
