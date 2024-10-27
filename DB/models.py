@@ -61,7 +61,8 @@ class ProductImage(Base):
     __tablename__ = "product_images"
 
     id = Column(BigInteger, primary_key=True, index=True)
-    product_id = Column(BigInteger, ForeignKey("products.id"), nullable=True)
+    product_id = Column(BigInteger, ForeignKey(
+        "products.id", ondelete="CASCADE"), nullable=False, index=True)
     image = Column(Text, nullable=True)
     thumbnail = Column(String(255), nullable=True)
     medium_image = Column(String(255), nullable=True)
@@ -78,7 +79,8 @@ class Wishlist(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    user_id = Column(BigInteger, ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP, default=datetime.utcnow,
                         onupdate=datetime.utcnow)
@@ -92,9 +94,9 @@ class WishlistProduct(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     wishlist_id = Column(BigInteger, ForeignKey(
-        "wishlists.id"), nullable=False, index=True)
+        "wishlists.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(BigInteger, ForeignKey(
-        "products.id"), nullable=False, index=True)
+        "products.id", ondelete="CASCADE"), nullable=False, index=True)
     note = Column(Text, nullable=True)
 
     wishlist = relationship("Wishlist", back_populates="products")

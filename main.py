@@ -18,10 +18,12 @@ import os
 from BackgroundMonitoring import scrape_product_data
 import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
+from api.admin.admin import admin_router
 
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
+app.include_router(admin_router)
 
 # CORS Middleware settings
 app.add_middleware(
@@ -328,18 +330,18 @@ def get_wishlist_products(wishlist_id: int, db: Session = Depends(get_db)):
                 detail="Wishlist not found"
             )
 
-        # Query products with related ProductImage objects
+        # Query products along with WishlistProduct for notes
         products = (
-            db.query(Product)
+            db.query(Product, WishlistProduct.note)  # Select Product and note
             .options(joinedload(Product.product_images))  # Load related images
             .join(WishlistProduct, WishlistProduct.product_id == Product.id)
             .filter(WishlistProduct.wishlist_id == wishlist_id)
             .all()
         )
 
-        # Format the response to include images within each product
+        # Format the response to include images within each product and add notes
         response = []
-        for product in products:
+        for product, note in products:
             response.append({
                 "id": product.id,
                 "name": product.name,
@@ -357,7 +359,8 @@ def get_wishlist_products(wishlist_id: int, db: Session = Depends(get_db)):
                         "large_image": image.large_image
                     }
                     for image in product.product_images
-                ]
+                ],
+                "note": note  # Include the note here
             })
 
         return response
