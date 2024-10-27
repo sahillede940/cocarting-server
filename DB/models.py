@@ -91,11 +91,10 @@ class WishlistProduct(Base):
     __tablename__ = "wishlist_products"
 
     id = Column(BigInteger, primary_key=True, index=True)
-    wishlist_id = Column(BigInteger, ForeignKey(
-        "wishlists.id"), nullable=False, index=True)
-    product_id = Column(BigInteger, ForeignKey(
-        "products.id"), nullable=False, index=True)
+    wishlist_id = Column(BigInteger, ForeignKey("wishlists.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(BigInteger, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     note = Column(Text, nullable=True)
 
     wishlist = relationship("Wishlist", back_populates="products")
     product = relationship("Product")
+
