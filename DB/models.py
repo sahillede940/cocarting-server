@@ -61,7 +61,8 @@ class ProductImage(Base):
     __tablename__ = "product_images"
 
     id = Column(BigInteger, primary_key=True, index=True)
-    product_id = Column(BigInteger, ForeignKey("products.id"), nullable=True)
+    product_id = Column(BigInteger, ForeignKey(
+        "products.id", ondelete="CASCADE"), nullable=False, index=True)
     image = Column(Text, nullable=True)
     thumbnail = Column(String(255), nullable=True)
     medium_image = Column(String(255), nullable=True)

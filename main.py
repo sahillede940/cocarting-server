@@ -18,9 +18,11 @@ import os
 from BackgroundMonitoring import scrape_product_data
 import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
+from api.admin.admin import admin_router
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
+app.include_router(admin_router)
 
 # CORS Middleware settings
 app.add_middleware(
@@ -330,7 +332,7 @@ def get_cocart_products(cocart_id: int, db: Session = Depends(get_db)):
         )
 
         response = []
-        for product in products:
+        for product, note in products:
             response.append({
                 "id": product.id,
                 "name": product.name,
@@ -348,7 +350,8 @@ def get_cocart_products(cocart_id: int, db: Session = Depends(get_db)):
                         "large_image": image.large_image
                     }
                     for image in product.product_images
-                ]
+                ],
+                "note": note  # Include the note here
             })
 
         return response
