@@ -163,6 +163,7 @@ def create_cocart(cocart_create: CocartCreate, db: Session = Depends(get_db)):
         new_cocart = Cocart(
             name=cocart_create.name,
             user_id=cocart_create.user_id,
+            slug=cocart_create.slug,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )

@@ -55,6 +55,7 @@ class ProductBase(BaseModel):
 class CocartCreate(BaseModel):
     name: str
     user_id: int
+    slug: str
 
 class Cocart(BaseModel):
     id: int

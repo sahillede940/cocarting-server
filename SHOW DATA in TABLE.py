@@ -10,7 +10,7 @@ mydb = mysql.connector.connect(
 
 # Get cursor
 mycursor = mydb.cursor()
-mycursor.execute("SELECT * FROM products")
+mycursor.execute("SELECT * FROM cocarts")
 
 # Fetch column names from the description attribute
 column_names = [i[0] for i in mycursor.description]

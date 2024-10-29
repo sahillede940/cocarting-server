@@ -77,22 +77,43 @@ class Cocart(Base):
     __tablename__ = "cocarts"
 
     id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    type = Column(Integer, nullable=False, default=0)
     name = Column(String(255), nullable=False)
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
+    description = Column(Text, nullable=True)
+    slug = Column(String(255), unique=True, nullable=False)
+    deleted_at = Column(TIMESTAMP, nullable=True, default=None)
+    created_at = Column(TIMESTAMP, nullable=True, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow)
+    thumbnail = Column(String(255), nullable=True)
+    allow_vote = Column(Boolean, nullable=False, default=False)
+    allow_add_product = Column(Boolean, nullable=False, default=False)
+    allow_remove_product = Column(Boolean, nullable=False, default=False)
+    mark_purchased_items = Column(Boolean, nullable=False, default=False)
+    is_read = Column(Boolean, nullable=False, default=False)
+    is_hide = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User", back_populates="cocarts")
     products = relationship("CocartProduct", back_populates="cocart")
+
 
 
 class CocartProduct(Base):
     __tablename__ = "cocart_products"
 
     id = Column(BigInteger, primary_key=True, index=True)
-    cocart_id = Column(BigInteger, ForeignKey("cocarts.id", ondelete="CASCADE"), nullable=False, index=True)
-    product_id = Column(BigInteger, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
-    note = Column(Text, nullable=True)
+    cocart_id = Column(BigInteger, ForeignKey("cocarts.id", ondelete="CASCADE"), nullable=True, index=True)
+    product_id = Column(BigInteger, ForeignKey("products.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    deleted_at = Column(TIMESTAMP, nullable=True, default=None)
+    created_at = Column(TIMESTAMP, nullable=True, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_bought = Column(Boolean, nullable=False, default=False)
+    is_claimed = Column(Boolean, nullable=False, default=False)
+    note = Column(Text, nullable=True) # Note for the product is not present
 
     cocart = relationship("Cocart", back_populates="products")
     product = relationship("Product")
+
+
+
