@@ -5,11 +5,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import List
 
-from DB.models import User, Wishlist, Product, WishlistProduct, ProductImage
+from DB.models import User, Cocart, Product, CocartProduct, ProductImage
 from DB.schemas import (
     UserCreate, User as UserSchema,
-    WishlistCreate, Wishlist as WishlistSchema,
-    WishlistProductCreate, UpdateProductBase
+    CocartCreate, Cocart as CocartSchema,
+    CocartProductCreate, UpdateProductBase
 )
 from DB.database import engine, get_db, Base
 from sqlalchemy.orm import joinedload
@@ -19,7 +19,6 @@ from BackgroundMonitoring import scrape_product_data
 import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
 from api.admin.admin import admin_router
-
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -66,7 +65,6 @@ async def startup_event():
 
 def update_product(product_id: int, product: UpdateProductBase, db: Session):
     try:
-        # Update the Product fields
         db.query(Product).filter_by(id=product_id).update(
             {
                 "name": product.get("name"),
@@ -78,7 +76,6 @@ def update_product(product_id: int, product: UpdateProductBase, db: Session):
             }
         )
 
-        # Update the ProductImage fields, if image is provided
         if product.image:
             db.query(ProductImage).filter_by(product_id=product_id).update(
                 {
@@ -112,7 +109,6 @@ async def scrape(db: Session = Depends(get_db)):
 
 
 # User Endpoints
-
 
 @app.post("/users", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
 def create_user(user_create: UserCreate, db: Session = Depends(get_db)):
@@ -154,29 +150,29 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
             detail=str(e)
         )
 
-# Wishlist Endpoints
+# Cocart Endpoints
 
-
-@app.post("/wishlists", response_model=WishlistSchema, status_code=status.HTTP_201_CREATED)
-def create_wishlist(wishlist_create: WishlistCreate, db: Session = Depends(get_db)):
+@app.post("/cocarts", response_model=CocartSchema, status_code=status.HTTP_201_CREATED)
+def create_cocart(cocart_create: CocartCreate, db: Session = Depends(get_db)):
     try:
         user = db.query(User).filter(
-            User.id == wishlist_create.user_id).first()
+            User.id == cocart_create.user_id).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-        new_wishlist = Wishlist(
-            name=wishlist_create.name,
-            user_id=wishlist_create.user_id,
+        new_cocart = Cocart(
+            name=cocart_create.name,
+            user_id=cocart_create.user_id,
+            slug=cocart_create.slug,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
-        db.add(new_wishlist)
+        db.add(new_cocart)
         db.commit()
-        db.refresh(new_wishlist)
-        return new_wishlist
+        db.refresh(new_cocart)
+        return new_cocart
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(
@@ -185,12 +181,12 @@ def create_wishlist(wishlist_create: WishlistCreate, db: Session = Depends(get_d
         )
 
 
-@app.get("/wishlists/{user_id}", response_model=List[WishlistSchema])
-def get_wishlists(user_id: int, db: Session = Depends(get_db)):
+@app.get("/cocarts/{user_id}", response_model=List[CocartSchema])
+def get_cocarts(user_id: int, db: Session = Depends(get_db)):
     try:
-        wishlists = db.query(Wishlist).filter(
-            Wishlist.user_id == user_id).all()
-        return wishlists
+        cocarts = db.query(Cocart).filter(
+            Cocart.user_id == user_id).all()
+        return cocarts
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(
@@ -199,25 +195,24 @@ def get_wishlists(user_id: int, db: Session = Depends(get_db)):
         )
 
 
-@app.delete("/wishlists/{wishlist_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_wishlist(wishlist_id: int, db: Session = Depends(get_db)):
+@app.delete("/cocarts/{cocart_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cocart(cocart_id: int, db: Session = Depends(get_db)):
     try:
-        # delete all products in the wishlist
-        db.query(WishlistProduct).filter(
-            WishlistProduct.wishlist_id == wishlist_id).delete()
+        db.query(CocartProduct).filter(
+            CocartProduct.cocart_id == cocart_id).delete()
         db.commit()
 
-        wishlist = db.query(Wishlist).filter(
-            Wishlist.id == wishlist_id).first()
-        if not wishlist:
+        cocart = db.query(Cocart).filter(
+            Cocart.id == cocart_id).first()
+        if not cocart:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Wishlist not found"
+                detail="Cocart not found"
             )
-        db.delete(wishlist)
+        db.delete(cocart)
         db.commit()
 
-        return {"message": "Wishlist deleted successfully"}
+        return {"message": "Cocart deleted successfully"}
 
     except SQLAlchemyError as e:
         db.rollback()
@@ -227,7 +222,6 @@ def delete_wishlist(wishlist_id: int, db: Session = Depends(get_db)):
         )
 
 # Product Endpoints
-
 
 @app.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(product_id: int, db: Session = Depends(get_db)):
@@ -241,10 +235,10 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
         db.delete(product)
         db.commit()
 
-        wishlist_product = db.query(WishlistProduct).filter(
-            WishlistProduct.product_id == product_id).first()
-        if wishlist_product:
-            db.delete(wishlist_product)
+        cocart_product = db.query(CocartProduct).filter(
+            CocartProduct.product_id == product_id).first()
+        if cocart_product:
+            db.delete(cocart_product)
             db.commit()
 
         return {"message": "Product deleted successfully"}
@@ -255,32 +249,31 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
             detail=str(e)
         )
 
-# WishlistProduct Endpoints
+# CocartProduct Endpoints
 
-
-@app.post("/wishlist-products", status_code=status.HTTP_201_CREATED)
-def add_product_to_wishlist(
-    wishlist_product_create: WishlistProductCreate,
+@app.post("/cocart-products", status_code=status.HTTP_201_CREATED)
+def add_product_to_cocart(
+    cocart_product_create: CocartProductCreate,
     db: Session = Depends(get_db)
 ):
     try:
-        # Check if wishlist exists
-        wishlist = db.query(Wishlist).filter(
-            Wishlist.id == wishlist_product_create.wishlist_id).first()
-        if not wishlist:
+        print("cocart_product_create", cocart_product_create)
+        cocart = db.query(Cocart).filter(
+            Cocart.id == cocart_product_create.cocart_id).first()
+        if not cocart:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Wishlist not found"
+                detail="Cocart not found"
             )
-        # Check if product exists
+        
         new_product = Product(
-            name=wishlist_product_create.product.name,
-            original_price=wishlist_product_create.product.original_price,
-            price=wishlist_product_create.product.price,
-            slug=wishlist_product_create.product.slug,
-            added_by=wishlist_product_create.product.added_by,
-            customer_rating=wishlist_product_create.product.customer_rating,
-            product_tracking_url=wishlist_product_create.product.product_tracking_url
+            name=cocart_product_create.product.name,
+            original_price=cocart_product_create.product.original_price,
+            price=cocart_product_create.product.price,
+            slug=cocart_product_create.product.slug,
+            added_by=cocart_product_create.product.added_by,
+            customer_rating=cocart_product_create.product.customer_rating,
+            product_tracking_url=cocart_product_create.product.product_tracking_url
         )
 
         if not new_product:
@@ -295,21 +288,21 @@ def add_product_to_wishlist(
 
         new_product_image = ProductImage(
             product_id=new_product.id,
-            image=wishlist_product_create.product.image
+            image=cocart_product_create.product.image
         )
         db.add(new_product_image)
         db.commit()
 
-        new_wishlist_product = WishlistProduct(
-            wishlist_id=wishlist_product_create.wishlist_id,
+        new_cocart_product = CocartProduct(
+            cocart_id=cocart_product_create.cocart_id,
             product_id=new_product.id,
-            note=wishlist_product_create.note
+            note=cocart_product_create.note
         )
-        db.add(new_wishlist_product)
+        db.add(new_cocart_product)
         db.commit()
-        db.refresh(new_wishlist_product)
+        db.refresh(new_cocart_product)
         return {
-            "message": "Product added to wishlist successfully",
+            "message": "Product added to cocart successfully",
         }
     except SQLAlchemyError as e:
         db.rollback()
@@ -319,27 +312,25 @@ def add_product_to_wishlist(
         )
 
 
-@app.get("/wishlists/{wishlist_id}/products")
-def get_wishlist_products(wishlist_id: int, db: Session = Depends(get_db)):
+@app.get("/cocarts/{cocart_id}/products")
+def get_cocart_products(cocart_id: int, db: Session = Depends(get_db)):
     try:
-        wishlist = db.query(Wishlist).filter(
-            Wishlist.id == wishlist_id).first()
-        if not wishlist:
+        cocart = db.query(Cocart).filter(
+            Cocart.id == cocart_id).first()
+        if not cocart:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Wishlist not found"
+                detail="Cocart not found"
             )
 
-        # Query products along with WishlistProduct for notes
         products = (
-            db.query(Product, WishlistProduct.note)  # Select Product and note
-            .options(joinedload(Product.product_images))  # Load related images
-            .join(WishlistProduct, WishlistProduct.product_id == Product.id)
-            .filter(WishlistProduct.wishlist_id == wishlist_id)
+            db.query(Product)
+            .options(joinedload(Product.product_images))
+            .join(CocartProduct, CocartProduct.product_id == Product.id)
+            .filter(CocartProduct.cocart_id == cocart_id)
             .all()
         )
 
-        # Format the response to include images within each product and add notes
         response = []
         for product, note in products:
             response.append({
@@ -374,7 +365,6 @@ def get_wishlist_products(wishlist_id: int, db: Session = Depends(get_db)):
 
 # Delete all data (admin operation)
 
-
 @app.delete("/all_data")
 def delete_all_data(password: str, db: Session = Depends(get_db)):
     if password != "adminadmin":
@@ -383,9 +373,9 @@ def delete_all_data(password: str, db: Session = Depends(get_db)):
             detail="Incorrect password",
         )
     try:
-        db.query(WishlistProduct).delete()
+        db.query(CocartProduct).delete()
         db.query(Product).delete()
-        db.query(Wishlist).delete()
+        db.query(Cocart).delete()
         db.query(User).delete()
         db.commit()
         return {"message": "All data deleted successfully"}
