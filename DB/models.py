@@ -10,7 +10,7 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False)
 
-    wishlists = relationship("Wishlist", back_populates="user")
+    cocarts = relationship("Cocart", back_populates="user")
 
 
 class Product(Base):
@@ -73,28 +73,26 @@ class ProductImage(Base):
     product = relationship("Product", back_populates="product_images")
 
 
-class Wishlist(Base):
-    __tablename__ = "wishlists"
+class Cocart(Base):
+    __tablename__ = "cocarts"
 
     id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP, default=datetime.utcnow,
-                        onupdate=datetime.utcnow)
+    updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship("User", back_populates="wishlists")
-    products = relationship("WishlistProduct", back_populates="wishlist")
+    user = relationship("User", back_populates="cocarts")
+    products = relationship("CocartProduct", back_populates="cocart")
 
 
-class WishlistProduct(Base):
-    __tablename__ = "wishlist_products"
+class CocartProduct(Base):
+    __tablename__ = "cocart_products"
 
     id = Column(BigInteger, primary_key=True, index=True)
-    wishlist_id = Column(BigInteger, ForeignKey("wishlists.id", ondelete="CASCADE"), nullable=False, index=True)
+    cocart_id = Column(BigInteger, ForeignKey("cocarts.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(BigInteger, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     note = Column(Text, nullable=True)
 
-    wishlist = relationship("Wishlist", back_populates="products")
+    cocart = relationship("Cocart", back_populates="products")
     product = relationship("Product")
-

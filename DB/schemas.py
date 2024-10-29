@@ -4,19 +4,18 @@ from datetime import datetime
 
 # User schemas
 
-
 class UserCreate(BaseModel):
     email: EmailStr
-
 
 class User(BaseModel):
     id: int
     email: EmailStr
-    wishlists: List['Wishlist'] = []
+    cocarts: List['Cocart'] = []
 
     class Config:
         orm_mode = True
 
+# Product schemas
 
 class ProductCreate(BaseModel):
     name: str
@@ -30,7 +29,6 @@ class ProductCreate(BaseModel):
 
 # Product Image schemas
 
-
 class ProductImageBase(BaseModel):
     id: int
     product_id: int
@@ -38,9 +36,6 @@ class ProductImageBase(BaseModel):
 
     class Config:
         orm_mode = True
-
-# Product schemas
-
 
 class ProductBase(BaseModel):
     id: int
@@ -55,42 +50,40 @@ class ProductBase(BaseModel):
     class Config:
         orm_mode = True
 
-# Wishlist schemas
+# Cocart schemas
 
-
-class WishlistCreate(BaseModel):
+class CocartCreate(BaseModel):
     name: str
     user_id: int
 
-
-class Wishlist(BaseModel):
+class Cocart(BaseModel):
     id: int
     name: str
     user_id: int
     created_at: datetime
     updated_at: datetime
-    products: List['WishlistProduct'] = []
+    products: List['CocartProduct'] = []
 
     class Config:
         orm_mode = True
 
-# WishlistProduct schemas
+# CocartProduct schemas
 
-
-class WishlistProductCreate(BaseModel):
-    wishlist_id: int
+class CocartProductCreate(BaseModel):
+    cocart_id: int
     product: ProductCreate
     note: Optional[str] = None
 
-
-class WishlistProduct(BaseModel):
+class CocartProduct(BaseModel):
     id: int
-    wishlist_id: int
+    cocart_id: int
     product_id: int
     note: Optional[str] = None
 
     class Config:
         orm_mode = True
+
+# Update Product schema
 
 class UpdateProductBase(BaseModel):
     name: str
