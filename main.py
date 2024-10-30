@@ -5,24 +5,25 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import List
 
-from DB.models import User, Cocart, Product, CocartProduct, ProductImage
-from DB.schemas import (
-    UserCreate, User as UserSchema,
-    CocartCreate, Cocart as CocartSchema,
-    CocartProductCreate, UpdateProductBase
-)
+# from DB.database import User, Cocart, Product, CocartProduct, ProductImage
+# from DB.schemas import (
+#     UserCreate, User as UserSchema,
+#     CocartCreate, Cocart as CocartSchema,
+#     CocartProductCreate, UpdateProductBase
+# )
 from DB.database import engine, get_db, Base
-from sqlalchemy.orm import joinedload
-import requests
-import os
-from BackgroundMonitoring import scrape_product_data
-import asyncio
-from apscheduler.schedulers.background import BackgroundScheduler
-from api.admin.admin import admin_router
+# from sqlalchemy.orm import joinedload
+# import requests
+# import os
+# from BackgroundMonitoring import scrape_product_data
+# import asyncio
+# from apscheduler.schedulers.background import BackgroundScheduler
+# # from api.admin.admin import admin_router
+# from sqlalchemy.sql import text
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
-app.include_router(admin_router)
+# app.include_router(admin_router)
 
 # CORS Middleware settings
 app.add_middleware(
@@ -41,7 +42,7 @@ def healthcheck(request: Request):
         "domain": request.url.hostname,
     }
 
-
+"""
 async def monitor_product(db: Session):
     print(f"Scraping data at {datetime.now()}")
     await scrape(db)
@@ -133,10 +134,10 @@ def create_user(user_create: UserCreate, db: Session = Depends(get_db)):
         )
 
 
-@app.get("/users/{user_id}", response_model=UserSchema)
+@app.get("/users/{user_id}")
 def get_user(user_id: int, db: Session = Depends(get_db)):
     try:
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.execute(text("SELECT * FROM users WHERE id = :user_id"), { "user_id": user_id }).fetchone()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -385,3 +386,5 @@ def delete_all_data(password: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+"""

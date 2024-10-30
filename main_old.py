@@ -1,7 +1,7 @@
 import json
 from fastapi import FastAPI, Request, HTTPException, Depends, status, Body
 from fastapi.middleware.cors import CORSMiddleware
-from DB.models import Wishlist, Product, WishlistProduct
+from DB.database import Wishlist, Product, WishlistProduct
 from DB.schemas import ProductBase, WishlistBase, UpdateProductBase
 from DB.database import engine, get_db, Base
 from sqlalchemy.orm import Session

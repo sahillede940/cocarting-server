@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
@@ -24,7 +24,8 @@ DATABASE_URL = f"{DB_CONNECTION}://{DB_USERNAME}:{encoded_password}@{DB_HOST}:{D
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+Base = automap_base()
+Base.prepare(engine, reflect=True)
 
 
 # Dependency
@@ -34,3 +35,13 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+print(Base.classes.keys())  # This will show all table names SQLAlchemy recognizes
+
+
+# User = Base.classes.get("users")  # Using .get() will prevent KeyError if the table is not found
+# Product = Base.classes.get("products")
+# ProductImage = Base.classes.get("product_images")
+# Cocart = Base.classes.get("cocarts")
+# CocartProduct = Base.classes.get("cocart_products")
+

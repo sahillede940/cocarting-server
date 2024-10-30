@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 from DB.database import get_db
-from DB.models import User, Wishlist, WishlistProduct, Product
+from DB.database import User, Wishlist, WishlistProduct, Product
 
 from sqlalchemy import func, desc
 
